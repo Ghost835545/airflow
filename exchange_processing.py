@@ -8,15 +8,33 @@ from airflow.operators.python import PythonOperator
 from datetime import datetime
 import json
 import xml.etree.ElementTree as ET
-
+import requests
+import xmltodict
 
 default_args = {
     'start_date' : datetime(2022, 1, 1)
 }
 
 def _processing_data(ti):
+    l = []
     data = ti.xcom_pull(task_ids=['extracting_data'])
-    return data
+    for index in data[0]['ValCurs']['Valute']:
+        l.append(
+        {
+            "Valute ID": index['@ID'],
+            "NumCode": index['NumCode'],
+            "CharCode": index['CharCode'],
+            "Nominal": index['Nominal'],
+            "Name": index['Name'],
+            "Value": index['Value'],
+            "Date": data[0]['ValCurs']['@Date'],
+
+        }
+        )
+        print(l[0])
+
+
+
 
 
 with DAG('exchange_processing', schedule_interval='@daily',
@@ -36,7 +54,8 @@ with DAG('exchange_processing', schedule_interval='@daily',
         http_conn_id='exch_con',
         endpoint='XML_daily.asp',
         method='GET',
-        response_filter= lambda response: ET.ElementTree(ET.fromstring(response.text)),
+        headers={"Content-Type": "application/xml"},
+        response_filter=lambda response: xmltodict.parse(response.text),
         log_response=True
     )
 
